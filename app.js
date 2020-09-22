@@ -1,4 +1,5 @@
 var createError = require('http-errors');
+
 var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
@@ -8,18 +9,21 @@ var FileStore = require('session-file-store')(session);
 var passport = require('passport');
 var authenticate = require('./authenticate');
 var config = require('./config');
-const cors = require('./cors');
 
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
 var dishRouter = require('./routes/dishRouter');
 var promoRouter = require('./routes/promoRouter');
 var leaderRouter = require('./routes/leaderRouter');
-const uploadRouter = require('./routes/uploadRouter');
+var uploadRouter = require('./routes/uploadRouter');
+var favoriteRouter = require('./routes/favoriteRouter');
 
 const mongoose = require('mongoose');
 
 const Dishes = require('./models/dishes');
+const Promotions = require('./models/promotions');
+const Leaders = require('./models/leaders');
+const Favorites = require('./models/favorite');
 
 const url = config.mongoUrl;
 const connect = mongoose.connect(url);
@@ -28,16 +32,14 @@ connect.then((db) => {
   console.log("Connected correctly to server");
 }, (err) => { console.log(err); });
 
-
 var app = express();
 
-// Secure traffic only
-app.all('*', (req, res, next) => {
-  if (req.secure) {
+//will redirect to https connection even if user try to access http connection at all endpoints
+app.all('*',(req,res,next)=>{
+  if(req.secure){
     return next();
-  }
-  else {
-    res.redirect(307, 'https://' + req.hostname + ':' + app.get('secPort') + req.url);
+  }else{
+    res.redirect(307,'https://'+req.hostname+':'+app.get('secPort')+req.url);
   }
 });
 
@@ -48,29 +50,73 @@ app.set('view engine', 'jade');
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+//app.use(cookieParser('12345-67890-09876-54321'));
 
-// app.use(cookieParser('12345-67890-09876-54321'));
 
-
-app.use(session({
-  name: 'session-id',
-  secret: '12345-67890-09876-54321',
-  saveUninitialized: false,
-  resave: false,
-  store: new FileStore()
-}));
+//session middleware
+//NOW WE ARE USING TOKEN BASED AUTH SO WE REMOVE SESSION PART
+// app.use(session({
+//   name: 'session-id',
+//   secret: '12345-67890-09876-54321',
+//   saveUninitialized: false,
+//   resave: false,
+//   store: new FileStore()
+// }));
 
 app.use(passport.initialize());
-
+// app.use(passport.session());
 
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
 
+
+//passport auth method
+//NOW NOT REQUIRE AUTH ON ALL THE ROUTES, BUT ON CERTAIN ROUTES ONLY
+
+// function auth (req, res, next) {
+//   console.log(req.user);
+
+//   if (!req.user) {
+//     var err = new Error('You are not authenticated!');
+//     err.status = 403;
+//     next(err);
+//   }
+//   else {
+//         next();
+//   }
+// }
+
+// app.use(auth);
+
+
+// function auth (req, res, next) {
+//   console.log(req.session);
+
+//       if(!req.session.user) {
+//           var err = new Error('You are not authenticated!');
+//           err.status = 403;
+//           return next(err);
+//       }
+//       else {
+//         if (req.session.user === 'authenticated') {
+//           next();
+//         }
+//         else {
+//           var err = new Error('You are not authenticated!');
+//           err.status = 403;
+//           return next(err);
+//         }
+//     }
+// }
+
+
 app.use(express.static(path.join(__dirname, 'public')));
+
 
 app.use('/dishes',dishRouter);
 app.use('/promotions',promoRouter);
 app.use('/leaders',leaderRouter);
+app.use('/favorites',favoriteRouter);
 app.use('/imageUpload',uploadRouter);
 
 // catch 404 and forward to error handler
